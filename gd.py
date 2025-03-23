@@ -56,6 +56,14 @@ class Model:
             activations = layer._forward(activations)
         return activations
 
+    def push(layer):
+        layers.append(Layer)
+
+    def pop():
+        if not layers:
+            return None
+        return layers.pop()
+
 class Layer:
     def __init__(self, input_size:int , output_size: int, activation="sigmoid"):
         """A model layer. The loss function is mean squared error.
