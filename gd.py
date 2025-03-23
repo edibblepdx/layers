@@ -9,6 +9,12 @@ from sklearn.model_selection import train_test_split
 
 class Model:
     def __init__(self, layers=[], learning_rate: float=0.01):
+        """A multi-layered model for classification and regression. Batch size of 1.
+
+        Keyword arguments:
+        layers -- A list of hidden and one output layer
+        learning_rate -- Determines how fast the model learns
+        """
         self.layers = layers
         self.learning_rate = learning_rate
 
@@ -18,7 +24,7 @@ class Model:
         Keyword arguments:
         X -- The input data
         Y -- The target labels
-        max_iterations -- The max number of training iterations (default 50)
+        max_iterations -- The max number of training iterations (default 100)
         tolerance -- The tolerance at which to stop training based on the magnitude of the gradient (default 1e-4)
         """
         # Gradient Descent and Back Propagation
@@ -39,7 +45,12 @@ class Model:
                 callback(self, i)
 
     def predict(self, x):
-        """Return value in range [0, n_classes-1]"""
+        """Make a prediction to the provided input.
+        Return prediction in range [0, n_classes-1]
+
+        Keyword arguments:
+        x -- The input
+        """
         activations = x
         for layer in self.layers:
             activations = layer._forward(activations)
@@ -47,32 +58,74 @@ class Model:
 
 class Layer:
     def __init__(self, input_size:int , output_size: int, activation="sigmoid"):
-        self.input_size = input_size
-        self.output_size = output_size
+        """A model layer. The loss function is mean squared error.
+
+        Keyword arguments:
+        input_size -- Must match the size of the output from the previous layer
+        output_size -- Must match the size of the input to the next layer
+        activation -- The activation function (default "sigmoid")
+        """
         # Xavier Weight Initialization (sigmoid)
         u = 1 / math.sqrt(input_size)
-        self.weights = np.random.uniform(-u, u, (output_size, input_size))
-        self.bias = np.zeros(output_size)
-
-    def _activation(self, z):
-        # Sigmoid function
-        return 1 / (1 + np.exp(-z))
+        self._weights = np.random.uniform(-u, u, (output_size, input_size))
+        self._bias = np.zeros(output_size)
+        # Activation function
+        self._activation, self._activation_derivative = self._get_activation(activation)
 
     def _forward(self, x):
         # Pre-activation 'z' and activation 'a'
-        z = np.dot(self.weights, x) + self.bias
-        self._a = self._activation(z)
+        self._z = np.dot(self._weights, x) + self._bias
+        self._a = self._activation()
         # Forward propagate the activation
         return self._a
 
     def _backward(self, x, error, learning_rate):
         # Get the gradient 'delta'
-        delta = error * self._a * (1 - self._a) # Hadamard product
+        delta = error * self._activation_derivative() # Hadamard product
         # Update weights and bias
-        self.weights -= learning_rate * np.outer(delta, x) # Multiply by x transpose
-        self.bias -= learning_rate * delta
+        self._weights -= learning_rate * np.outer(delta, x) # Multiply by x transpose
+        self._bias -= learning_rate * delta
         # Back propagate the error term
-        return self.weights.T @ delta
+        return self._weights.T @ delta
+
+    def _get_activation(self, activation):
+        match activation:
+            case "linear":
+                return self._linear, self._linear_derivative
+            case "sigmoid":
+                return self._sigmoid, self._sigmoid_derivative
+            case "relu":
+                return self._relu, self._relu_derivative
+            case "tanh":
+                return self._tanh, self._tanh_derivative
+
+    def _linear(self):
+        return self._z
+
+    def _linear_derivative(self):
+        return np.ones_like(self._a)
+
+    def _sigmoid(self):
+        return 1 / (1 + np.exp(-self._z))
+
+    def _sigmoid_derivative(self):
+        return self._a * (1 - self._a)
+
+    def _relu(self):
+        return np.maximum(0, self._z)
+
+    def _relu_derivative(self):
+        return (self._a > 0) * 1
+
+    def _tanh(self):
+        return np.tanh(self._z)
+
+    def _tanh_derivative(self):
+        return 1 - self._a**2
+
+    def _softmax(self):
+        e_z = np.exp(self._z - np.max(self._z))
+        return e_z / e_z.sum(axis=0)
 
 def one_hot(a, n_classes):
     """One hot encode target labels."""
@@ -103,7 +156,7 @@ if __name__ == "__main__":
     iris_model = Model([
         #Layer(4, 10),  # hidden layer (4 features, 10 neurons)
         #Layer(10, 3),  # output layer (10 inputs, 3 classifications)
-        Layer(4, 3)
+        Layer(4, 3, activation="sigmoid")
     ])
     logger(iris_model, 0) # initial accuracy
     iris_model.fit(X_train, Y_train, max_iterations=50, callbacks=[logger])
