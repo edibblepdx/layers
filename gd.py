@@ -3,7 +3,7 @@
 import math
 import numpy as np
 import matplotlib.pyplot as plt
-from sklearn.datasets import make_classification
+from sklearn.datasets import make_blobs
 from sklearn.datasets import load_iris
 from sklearn.model_selection import train_test_split
 
@@ -54,7 +54,7 @@ class Model:
         activations = x
         for layer in self.layers:
             activations = layer._forward(activations)
-        return np.argmax(activations)
+        return activations
 
 class Layer:
     def __init__(self, input_size:int , output_size: int, activation="sigmoid"):
@@ -103,7 +103,7 @@ class Layer:
         return self._z
 
     def _linear_derivative(self):
-        return np.ones_like(self._a)
+        return np.ones_like(self._z)
 
     def _sigmoid(self):
         return 1 / (1 + np.exp(-self._z))
@@ -133,14 +133,14 @@ def one_hot(a, n_classes):
     b[np.arange(a.size), a] = 1
     return b
 
-if __name__ == "__main__":
+def classification():
     # log accuracy after each iteration
     log = []
     def logger(model, iter):
         num_correct = 0
         count = 0
         for (sample, label) in zip(X_test, y_test):
-            prediction = model.predict(sample)
+            prediction = np.argmax(model.predict(sample))
             count += 1
             if prediction == label:
                 num_correct += 1
@@ -163,8 +163,69 @@ if __name__ == "__main__":
 
     # plot accuracy
     fig, ax = plt.subplots()
-    ax.plot(log)
-    ax.set_xlabel('iteration')
-    ax.set_ylabel('accuracy')
+    ax.plot(log, linewidth=5.0)
+    ax.set_xlabel('iteration', size=20)
+    ax.set_ylabel('accuracy', size=20)
+
+def linear_regression():
+    # Load iris dataset
+    iris = load_iris()
+    y = iris.target
+    sepal_length = iris.data[:, 0].reshape(-1, 1)
+    petal_length = iris.data[:, 2].reshape(-1, 1)
+
+    iris_model = Model([
+        Layer(1, 1, activation="linear")
+    ])
+    iris_model.fit(sepal_length, petal_length)
+
+    # Generate a range of sepal lengths to plot
+    x_range = np.linspace(sepal_length.min(), sepal_length.max(), 100).reshape(-1, 1)
+    # Get petal length predictions from the model
+    y_pred = np.array([iris_model.predict(x) for x in x_range])
+
+    # plot sepal length by petal length
+    fig, ax = plt.subplots()
+    ax.scatter(sepal_length, petal_length, c=y, linewidths=5.0)
+    ax.plot(x_range, y_pred, c="red", linewidth=5.0)
+    ax.set_xlabel('sepal length', size=20)
+    ax.set_ylabel('petal length', size=20)
+
+def decision_boundaries():
+    # !!! Method to plot the boundary is taken from here:
+    # https://dnmtechs.com/plotting-decision-boundary-with-matplotlibs-pyplot-in-python-3/
+
+    # Create mock data
+    X, y = make_blobs(n_samples=200, centers=2, random_state=4)
+
+    # Fit the model
+    model = Model([
+        Layer(2, 1, activation="sigmoid")  # 2 inputs, 1 output (binary classification)
+    ])
+    model.fit(X, y.reshape(-1, 1), max_iterations=100)
+
+    # Define the range of the plot
+    x_min, x_max = X[:, 0].min() - 0.5, X[:, 0].max() + 0.5
+    y_min, y_max = X[:, 1].min() - 0.5, X[:, 1].max() + 0.5
+    xx, yy = np.meshgrid(np.arange(x_min, x_max, 0.01),
+                         np.arange(y_min, y_max, 0.01))
+
+    # Flatten grid and predict for each point
+    grid_points = np.c_[xx.ravel(), yy.ravel()]
+    predictions = np.array([model.predict(point) for point in grid_points])
+    predictions = predictions.reshape(xx.shape)
+
+    # Plot decision boundary
+    fig, ax = plt.subplots()
+    ax.contourf(xx, yy, predictions, alpha=0.5, cmap=plt.cm.coolwarm)
+
+    ax.scatter(X[:, 0], X[:, 1], c=y, linewidths=5.0)
+    ax.set_xlabel('feature 1', size=20)
+    ax.set_ylabel('feature 2', size=20)
+
+if __name__ == "__main__":
+    classification()
+    linear_regression()
+    decision_boundaries()
     plt.show()
 
